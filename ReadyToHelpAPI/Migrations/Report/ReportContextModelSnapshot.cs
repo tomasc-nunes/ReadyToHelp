@@ -35,19 +35,10 @@ namespace ReadyToHelpAPI.Migrations.Report
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<bool>("IsDuplicate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<int>("Priority")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime>("ReportDateTime")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasDefaultValueSql("NOW() AT TIME ZONE 'UTC'");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -64,7 +55,7 @@ namespace ReadyToHelpAPI.Migrations.Report
 
                     b.HasIndex("UserId", "ReportDateTime");
 
-                    b.ToTable("Reports", (string)null);
+                    b.ToTable("reports", (string)null);
                 });
 
             modelBuilder.Entity("readytohelpapi.Report.Models.Report", b =>
@@ -84,7 +75,7 @@ namespace ReadyToHelpAPI.Migrations.Report
 
                             b1.HasKey("ReportId");
 
-                            b1.ToTable("Reports");
+                            b1.ToTable("reports");
 
                             b1.WithOwner()
                                 .HasForeignKey("ReportId");
