@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using readytohelpapi.Common.Data;
 
@@ -20,6 +21,7 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                 .HasAnnotation("ProductVersion", "9.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("readytohelpapi.Feedback.Models.Feedback", b =>
@@ -152,6 +154,43 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                     b.HasIndex("UserId");
 
                     b.ToTable("reports", (string)null);
+                });
+
+            modelBuilder.Entity("readytohelpapi.ResponsibleEntity.Models.ResponsibleEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ContactPhone")
+                        .HasMaxLength(500)
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Polygon>("GeoArea")
+                        .IsRequired()
+                        .HasColumnType("geometry");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id")
+                        .HasName("PK_responsible_entities");
+
+                    b.ToTable("responsible_entities", (string)null);
                 });
 
             modelBuilder.Entity("readytohelpapi.User.Models.User", b =>
