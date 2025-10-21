@@ -182,6 +182,11 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                         .IsRequired()
                         .HasColumnType("geometry");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(100)
