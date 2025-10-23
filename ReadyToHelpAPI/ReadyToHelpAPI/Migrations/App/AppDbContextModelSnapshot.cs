@@ -84,7 +84,7 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                     b.Property<int>("ReportCount")
                         .HasColumnType("integer");
 
-                    b.Property<int>("ReportId")
+                    b.Property<int?>("ReportId")
                         .HasColumnType("integer");
 
                     b.Property<int>("ResponsibleEntityId")
@@ -168,9 +168,8 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<Polygon>("GeoArea")
-                        .IsRequired()
-                        .HasColumnType("geometry");
+                    b.Property<Geometry>("GeoArea")
+                        .HasColumnType("geometry(MultiPolygon,4326)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -247,7 +246,6 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                         .WithMany()
                         .HasForeignKey("ReportId")
                         .OnDelete(DeleteBehavior.SetNull)
-                        .IsRequired()
                         .HasConstraintName("FK_occurrences_report");
 
                     b.OwnsOne("readytohelpapi.GeoPoint.Models.GeoPoint", "Location", b1 =>
