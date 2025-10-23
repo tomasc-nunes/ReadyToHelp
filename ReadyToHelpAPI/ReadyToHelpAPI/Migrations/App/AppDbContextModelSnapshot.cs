@@ -41,13 +41,7 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                     b.Property<int>("OccurrenceId")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("OccurrenceId1")
-                        .HasColumnType("integer");
-
                     b.Property<int>("UserId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("UserId1")
                         .HasColumnType("integer");
 
                     b.HasKey("Id")
@@ -55,11 +49,7 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
 
                     b.HasIndex("OccurrenceId");
 
-                    b.HasIndex("OccurrenceId1");
-
                     b.HasIndex("UserId");
-
-                    b.HasIndex("UserId1");
 
                     b.ToTable("feedback", (string)null);
                 });
@@ -243,24 +233,12 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                         .IsRequired()
                         .HasConstraintName("FK_feedback_occurrence");
 
-                    b.HasOne("readytohelpapi.Occurrence.Models.Occurrence", "Occurrence")
-                        .WithMany()
-                        .HasForeignKey("OccurrenceId1");
-
                     b.HasOne("readytohelpapi.User.Models.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK_feedback_user");
-
-                    b.HasOne("readytohelpapi.User.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId1");
-
-                    b.Navigation("Occurrence");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("readytohelpapi.Occurrence.Models.Occurrence", b =>
