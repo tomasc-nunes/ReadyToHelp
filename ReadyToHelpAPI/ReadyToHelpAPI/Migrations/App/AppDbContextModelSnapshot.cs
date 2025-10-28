@@ -109,6 +109,8 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
 
                     b.HasIndex("ReportId");
 
+                    b.HasIndex("ResponsibleEntityId");
+
                     b.ToTable("occurrences", (string)null);
                 });
 
@@ -247,6 +249,13 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                         .HasForeignKey("ReportId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("FK_occurrences_report");
+
+                    b.HasOne("readytohelpapi.ResponsibleEntity.Models.ResponsibleEntity", null)
+                        .WithMany()
+                        .HasForeignKey("ResponsibleEntityId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .IsRequired()
+                        .HasConstraintName("FK_occurrences_responsible_entity");
 
                     b.OwnsOne("readytohelpapi.GeoPoint.Models.GeoPoint", "Location", b1 =>
                         {
