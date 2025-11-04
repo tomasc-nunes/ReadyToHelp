@@ -135,8 +135,10 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("integer");
@@ -157,16 +159,13 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Address")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
                     b.Property<int>("ContactPhone")
-                        .HasMaxLength(500)
                         .HasColumnType("integer");
 
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -174,7 +173,6 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                         .HasColumnType("geometry(MultiPolygon,4326)");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
