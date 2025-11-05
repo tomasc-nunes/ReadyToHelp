@@ -87,7 +87,7 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                     b.Property<int?>("ReportId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("ResponsibleEntityId")
+                    b.Property<int?>("ResponsibleEntityId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Status")
@@ -252,7 +252,6 @@ namespace ReadyToHelpAPI.ReadyToHelpAPI.Migrations.App
                         .WithMany()
                         .HasForeignKey("ResponsibleEntityId")
                         .OnDelete(DeleteBehavior.SetNull)
-                        .IsRequired()
                         .HasConstraintName("FK_occurrences_responsible_entity");
 
                     b.OwnsOne("readytohelpapi.GeoPoint.Models.GeoPoint", "Location", b1 =>
