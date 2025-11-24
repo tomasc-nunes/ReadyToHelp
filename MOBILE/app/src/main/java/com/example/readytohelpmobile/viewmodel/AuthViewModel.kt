@@ -3,10 +3,10 @@ package com.example.readytohelpmobile.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.readytohelpmobile.services.AuthService
 import com.example.readytohelpmobile.model.auth.LoginRequest
 import com.example.readytohelpmobile.model.auth.RegisterRequest
 import com.example.readytohelpmobile.network.NetworkClient
+import com.example.readytohelpmobile.services.AuthService // Confirma se tens este import
 import com.example.readytohelpmobile.utils.TokenManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,10 +36,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     tokenManager.saveToken(response.body()!!)
                     _uiState.value = AuthUiState.Success
                 } else {
-                    _uiState.value = AuthUiState.Error("Login falhou: ${response.code()}")
+                    _uiState.value = AuthUiState.Error("Login failed: ${response.code()}")
                 }
             } catch (e: Exception) {
-                _uiState.value = AuthUiState.Error("Erro: ${e.localizedMessage}")
+                _uiState.value = AuthUiState.Error("Error: ${e.localizedMessage}")
             }
         }
     }
@@ -52,10 +52,23 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 if (response.isSuccessful) {
                     login(email, pass)
                 } else {
-                    _uiState.value = AuthUiState.Error("Registo falhou: ${response.code()}")
+                    _uiState.value = AuthUiState.Error("Registration failed: ${response.code()}")
                 }
             } catch (e: Exception) {
-                _uiState.value = AuthUiState.Error("Erro: ${e.localizedMessage}")
+                _uiState.value = AuthUiState.Error("Error: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun logout(onLogoutComplete: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                api.logout()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                tokenManager.clearToken()
+                onLogoutComplete()
             }
         }
     }
