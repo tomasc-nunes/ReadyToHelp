@@ -13,4 +13,7 @@ interface AuthService {
 
     @POST("user/register")
     suspend fun register(@Body request: RegisterRequest): Response<UserResponse>
+
+    @POST("auth/logout")
+    suspend fun logout(): Response<Void>
 }

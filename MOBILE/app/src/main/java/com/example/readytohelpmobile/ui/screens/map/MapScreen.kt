@@ -7,44 +7,27 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.content.res.AppCompatResources
-import androidx.compose.animation.core.Animatable // Importante
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarData
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.readytohelpmobile.R
+import com.example.readytohelpmobile.viewmodel.AuthViewModel
 import com.example.readytohelpmobile.viewmodel.MapUiState
 import com.example.readytohelpmobile.viewmodel.MapViewModel
 import com.mapbox.geojson.Point
@@ -56,11 +39,9 @@ import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
 import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
-import com.example.readytohelpmobile.R
 import com.mapbox.maps.plugin.locationcomponent.location
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
+
+private val BrandBlue = Color(0xFF4253AF)
 
 @Composable
 fun bitmapFromDrawableRes(drawableResId: Int): Bitmap? {
@@ -72,16 +53,12 @@ fun bitmapFromDrawableRes(drawableResId: Int): Bitmap? {
 
 @Composable
 fun MapScreen(
-    viewModel: MapViewModel = viewModel()
+    mapViewModel: MapViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
+    onLogout: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-
-    // ALTERAÇÃO 1: Usar Animatable para controlo manual da animação
-    val progressAnimatable = remember { Animatable(1f) }
+    val uiState by mapViewModel.uiState.collectAsStateWithLifecycle()
 
     val animal_on_road_pin = bitmapFromDrawableRes(R.drawable.animal_on_road)
     val crime_pin = bitmapFromDrawableRes(R.drawable.crime)
@@ -122,71 +99,30 @@ fun MapScreen(
         if (isGranted) {
             hasLocationPermission = true
         } else {
-            Toast.makeText(context, "Permissão de localização negada.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    // --- LÓGICA DO SNACKBAR COM TIMER E BARRA DE PROGRESSO ---
-    LaunchedEffect(Unit) {
-        viewModel.mapEvent.collectLatest { event ->
-
-            // ALTERAÇÃO 2: Lógica de animação corrigida
-            val timerJob = scope.launch {
-                // 1. Reset instantâneo para cheio
-                progressAnimatable.snapTo(1f)
-
-                // 2. Animar para 0 em 30 segundos
-                progressAnimatable.animateTo(
-                    targetValue = 0f,
-                    animationSpec = tween(durationMillis = 30000, easing = LinearEasing)
-                )
-
-                // 3. Se a animação acabar, fechar o snackbar
-                snackbarHostState.currentSnackbarData?.dismiss()
-            }
-
-            val result = snackbarHostState.showSnackbar(
-                message = event.message,
-                actionLabel = "Confirmar",
-                duration = SnackbarDuration.Indefinite
-            )
-
-            timerJob.cancel()
-            // Garantir que pára a animação se o utilizador clicar
-            scope.launch { progressAnimatable.stop() }
-
-            if (result == SnackbarResult.ActionPerformed) {
-                viewModel.confirmPresence(event.occurrenceId, true)
-            } else {
-                viewModel.confirmPresence(event.occurrenceId, false)
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        viewModel.toastEvent.collectLatest { message ->
-            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Location permission required.", Toast.LENGTH_SHORT).show()
         }
     }
 
     LaunchedEffect(hasLocationPermission) {
         if (hasLocationPermission) {
-            viewModel.getUserLocation()
+            mapViewModel.getUserLocation()
         } else {
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+
         when (val state = uiState) {
             is MapUiState.Loading -> {
-                CircularProgressIndicator()
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = BrandBlue)
+                }
             }
             is MapUiState.Error -> {
-                Text(text = state.message)
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(text = state.message, color = MaterialTheme.colorScheme.error)
+                }
             }
             is MapUiState.Success -> {
                 if (hasLocationPermission) {
@@ -214,17 +150,17 @@ fun MapScreen(
                             val pointAnnotationManager = mapView.annotations.createPointAnnotationManager()
                             pointAnnotationManager.deleteAll()
 
+                            // Clique no marcador
                             pointAnnotationManager.addClickListener { annotation ->
                                 val clickedOccurrence = state.occurrences.find {
                                     val lat = it.location?.latitude
                                     val lng = it.location?.longitude
                                     lng == annotation.point.longitude() && lat == annotation.point.latitude()
                                 }
-
                                 clickedOccurrence?.let {
                                     Toast.makeText(
                                         context,
-                                        "${it.title}: Raio ${it.proximityRadius}m",
+                                        "${it.title}: Radius ${it.proximityRadius}m",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
@@ -259,74 +195,39 @@ fun MapScreen(
                                     "ROAD_DAMAGE" -> road_damage
                                     else -> defaultPinBitmap
                                 }
-
                                 bmp?.let {
                                     PointAnnotationOptions()
                                         .withPoint(Point.fromLngLat(loc.longitude, loc.latitude))
                                         .withIconImage(it)
                                 }
                             }
-
                             pointAnnotationManager.create(annotationOptionsList)
                         }
                     }
                 } else {
-                    Text(text = "A permissão de localização é necessária para mostrar o mapa.")
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Location permission required.")
+                    }
                 }
             }
         }
 
-        // --- SNACKBAR PERSONALIZADO ---
-        SnackbarHost(
-            hostState = snackbarHostState,
+        Surface(
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp, start = 16.dp, end = 16.dp)
-        ) { data: SnackbarData ->
-            Surface(
-                color = Color(0xFF4353AB),
-                contentColor = Color.White,
-                shape = RoundedCornerShape(12.dp),
-                shadowElevation = 6.dp,
-                modifier = Modifier.fillMaxWidth()
+                .align(Alignment.BottomEnd)
+                .padding(24.dp)
+                .shadow(4.dp, CircleShape),
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.9f)
+        ) {
+            IconButton(
+                onClick = { authViewModel.logout(onLogoutComplete = onLogout) }
             ) {
-                Column {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = data.visuals.message,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Button(
-                            onClick = { data.performAction() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFFFFFFF),
-                                contentColor = Color(0xFF4353AB)
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = data.visuals.actionLabel ?: "Confirmar",
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    // ALTERAÇÃO 3: Usar o valor do Animatable
-                    LinearProgressIndicator(
-                        progress = { progressAnimatable.value },
-                        modifier = Modifier.fillMaxWidth().height(4.dp),
-                        color = Color(0xFFFFFFFF),
-                        trackColor = Color(0x40FFFFFF),
-                    )
-                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                    contentDescription = "Logout",
+                    tint = BrandBlue
+                )
             }
         }
     }
