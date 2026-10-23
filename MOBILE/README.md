@@ -1,93 +1,251 @@
-# ReadyToHelpMobile
+# ReadyToHelp Mobile
 
+Native Android client for ReadyToHelp, built with Kotlin and Jetpack Compose. It connects to the ReadyToHelp API for authentication and occurrence-related features and uses Mapbox for maps.
 
+See the [project overview](../README.md) and [API setup guide](../API/README.md). Commands below use PowerShell and run from `MOBILE` unless stated otherwise.
 
-## Getting started
+## Prerequisites
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Install:
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- [Git](https://git-scm.com/downloads).
+- [Android Studio](https://developer.android.com/studio), with support for Android Gradle Plugin **8.13.1**.
+- A **JDK 17** installation for running Gradle. Configure Android Studio's Gradle JDK and the terminal's `JAVA_HOME` consistently. The app's Java/Kotlin bytecode target of 11 does not mean Gradle should run with Java 11.
+- Android SDK Platform **36**, SDK Build-Tools **35.0.0**, and Android SDK Platform-Tools through Android Studio's SDK Manager. See the [AGP 8.13 compatibility requirements](https://developer.android.com/build/releases/agp-8-13-0-release-notes).
+- Android Emulator and an appropriate system image, or a physical Android device running **Android 9 / API 28 or newer**. A Google APIs emulator image is suitable for the location dependencies.
+- Internet access for the initial Gradle/dependency downloads and Mapbox services.
 
-## Add your files
+The repository includes the **Gradle 8.13 wrapper**. Do not install Gradle separately. Kotlin **2.0.21**, Compose, Retrofit, Moshi, OkHttp, and Mapbox dependencies are resolved by Gradle.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## 1. Get the code
 
+From the directory where you want to store the project:
+
+```powershell
+git clone https://gitlab.com/grupo_07-lds-2526/lds_25_26.git ReadyToHelp
+cd ReadyToHelp/MOBILE
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/grupo_07-lds-2526/readytohelpmobile.git
-git branch -M main
-git push -uf origin main
+
+For an existing checkout, open a terminal in `MOBILE`.
+
+## 2. Configure Android Studio and the SDK
+
+1. In Android Studio, choose **Open** and select the `MOBILE` directory containing `settings.gradle.kts`.
+2. Open **SDK Manager** and install the SDK packages listed above. Accept the SDK licenses when prompted.
+3. In **Settings > Build, Execution, Deployment > Build Tools > Gradle**, select JDK 17 as the Gradle JDK.
+4. Let Android Studio synchronize the project. The first sync downloads the wrapper distribution and dependencies.
+
+Android Studio normally creates `local.properties` with your SDK location. For command-line setup, create `MOBILE/local.properties` using your actual path, for example:
+
+```properties
+sdk.dir=C:/Users/YOUR_USERNAME/AppData/Local/Android/Sdk
 ```
 
-## Integrate with your tools
+Keep this machine-specific file out of version control. For terminal builds, set `JAVA_HOME` to your installed JDK 17 directory and add its `bin` directory to `PATH`. Add the SDK's `platform-tools` directory to `PATH` to use `adb`.
 
-- [ ] [Set up project integrations](https://gitlab.com/grupo_07-lds-2526/readytohelpmobile/-/settings/integrations)
+Verify:
 
-## Collaborate with your team
+```powershell
+java -version
+./gradlew.bat --version
+adb version
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+On macOS/Linux, use `./gradlew` instead of `./gradlew.bat` in all commands. If necessary, make it executable with `chmod +x gradlew`.
 
-## Test and Deploy
+## 3. Configure the API connection
 
-Use the built-in continuous integration in GitLab.
+The base URL is defined in:
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+```text
+app/src/main/java/com/example/readytohelpmobile/network/NetworkClient.kt
+```
 
-***
+The current value is `https://readytohelp-api.up.railway.app/api/`. Keep it to use the hosted service, subject to its availability and account access. Requests affect that service's data.
 
-# Editing this README
+For local development, follow the [API README](../API/README.md) to start PostgreSQL/PostGIS, apply migrations, and launch the API. Confirm [Swagger on the development computer](http://localhost:5134/swagger) works first.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Change `BASE_URL` according to the device:
 
-## Suggestions for a good README
+| Device / connection | Base URL |
+| --- | --- |
+| Standard Android Emulator, API running locally | `http://10.0.2.2:5134/api/` |
+| Standard Android Emulator, API exposed by Docker on port 8080 | `http://10.0.2.2:8080/api/` |
+| Physical device using USB and `adb reverse` | `http://127.0.0.1:5134/api/` |
+| Physical device on the same network | `http://YOUR_COMPUTER_LAN_IP:5134/api/` |
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Preserve the `/api/` suffix and trailing slash required by the Retrofit base URL. Rebuild and relaunch after changing it. There is no environment-variable or build-variant URL configuration in the current project. For Docker, resolve the port-mapping issue described in the API README first.
 
-## Name
-Choose a self-explaining name for your project.
+### Android Emulator
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+`localhost` inside the emulator refers to the emulator itself. `10.0.2.2` reaches the development computer from the standard Android Emulator.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### Physical device over USB
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+Enable Developer options and USB debugging, connect the device, accept its debugging authorization prompt, then run:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```powershell
+adb devices
+adb reverse tcp:5134 tcp:5134
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Set `BASE_URL` to `http://127.0.0.1:5134/api/`. Repeat the reverse command if the device reconnects. To remove the forwarding later:
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```powershell
+adb reverse --remove tcp:5134
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### Physical device over Wi-Fi
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+Use the computer's LAN IP and ensure the device can reach the API through the local firewall. The API currently binds to `0.0.0.0:5134`.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Local HTTP exceptions are configured in `app/src/main/res/xml/network_security_config.xml` for `localhost`, `127.0.0.1`, and `10.0.2.2`. For a LAN IP, add that exact host to the existing `domain-config` for development:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+```xml
+<domain includeSubdomains="false">192.168.1.100</domain>
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Replace the example with your computer's IP. The manifest references this network-security configuration; its `usesCleartextTraffic` flag alone is not a substitute for the host exception. Use HTTPS for deployed services.
 
-## License
-For open source projects, say how it is licensed.
+## 4. Configure Mapbox
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+The public map token is stored in:
+
+```text
+app/src/main/res/values/mapbox.xml
+```
+
+For your own setup, replace the `mapbox_access_token` value with a public token from your [Mapbox account](https://account.mapbox.com/):
+
+```xml
+<resources>
+    <string name="mapbox_access_token" translatable="false">YOUR_PUBLIC_MAPBOX_TOKEN</string>
+</resources>
+```
+
+The app currently uses Mapbox Maps/Compose **11.16.4**. Its Maven repository is already listed in `settings.gradle.kts`. The build does not currently read a `MAPBOX_DOWNLOADS_TOKEN` property. Do not place secret download tokens in Android resources.
+
+Map tiles require internet access. Allow location access when requested to use location features, and set a simulated location in the emulator's extended controls when testing movement or nearby occurrences.
+
+## 5. Build and run
+
+### From Android Studio
+
+1. Open **Device Manager**, create an emulator with API 28 or newer, and start it; alternatively connect a USB-debugging device.
+2. Select the `app` run configuration and your device.
+3. Click **Run**. Android Studio builds, installs, and launches the debug app.
+
+### From the terminal
+
+Build the debug APK:
+
+```powershell
+./gradlew.bat :app:assembleDebug
+```
+
+The APK is generated at:
+
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+With an emulator running or a device connected:
+
+```powershell
+adb devices
+./gradlew.bat :app:installDebug
+adb shell am start -n com.example.readytohelpmobile/.MainActivity
+```
+
+Alternatively, install the generated APK directly:
+
+```powershell
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+If multiple devices are connected, use Android Studio's device selector or `adb -s DEVICE_SERIAL` for adb commands. Use an account registered on the selected backend; this README does not provide seeded credentials.
+
+To stop the running app:
+
+```powershell
+adb shell am force-stop com.example.readytohelpmobile
+```
+
+### Release build
+
+```powershell
+./gradlew.bat :app:assembleRelease
+```
+
+Release artifacts are written under `app/build/outputs/apk/release/`. No release signing configuration is defined in `app/build.gradle.kts`. For distribution, configure signing or use Android Studio's **Generate Signed App Bundle / APK** workflow with your own keystore.
+
+## 6. Tests and code quality
+
+### Local JVM tests
+
+```powershell
+./gradlew.bat :app:testDebugUnitTest
+```
+
+These do not need a device. The current checkout's system tests are under `app/src/androidTest`; the JVM task may report no test sources. When tests exist, reports are generated under `app/build/reports/tests/`.
+
+### Android instrumented tests
+
+Start an emulator or connect a device, then run:
+
+```powershell
+./gradlew.bat :app:connectedDebugAndroidTest
+```
+
+The existing system tests cover registration, login, and maps. Inspect their backend/mocking setup before running them against shared data. Reports are generated under `app/build/reports/androidTests/connected/`.
+
+### Coverage
+
+The repository defines this custom JaCoCo task (its name is intentionally kept as defined in Gradle):
+
+```powershell
+./gradlew.bat :app:gerarRelatorioCoverage
+```
+
+It depends on `connectedDebugAndroidTest`, so it also requires a running emulator or device. HTML output is under `app/build/reports/jacoco/gerarRelatorioCoverage/html/`, with XML output in the same report directory.
+
+### Android lint
+
+```powershell
+./gradlew.bat :app:lintDebug
+```
+
+Reports are generated under `app/build/reports/`.
+
+## Project structure
+
+```text
+app/src/main/java/com/example/readytohelpmobile/
+  MainActivity.kt       Application entry activity
+  model/                Data models
+  network/              Retrofit client and authentication interceptor
+  services/             API service interfaces
+  ui/                   Compose screens and UI resources
+  utils/                Shared utilities and token storage
+  viewmodel/            UI state and application logic
+app/src/main/res/       Android resources, Mapbox token, network policy
+app/src/androidTest/   Device/emulator system tests
+app/build.gradle.kts   Android configuration, dependencies, coverage task
+gradle/libs.versions.toml  Shared dependency and plugin versions
+gradle/wrapper/        Pinned Gradle distribution and wrapper
+settings.gradle.kts    Modules and dependency repositories
+```
+
+## Troubleshooting
+
+- **Gradle requires Java 17:** check both `java -version` and `./gradlew.bat --version`, and align `JAVA_HOME` with Android Studio's Gradle JDK.
+- **SDK location not found:** open the project in Android Studio or set the correct `sdk.dir` in `local.properties`.
+- **Missing SDK packages or licenses:** install API 36 and the required Build-Tools in SDK Manager and accept the licenses. The emulator's Android version can differ from the compile SDK.
+- **Dependencies cannot download:** check connectivity, proxy settings, and Gradle offline mode, then synchronize again.
+- **Device missing or unauthorized:** check `adb devices`, USB debugging authorization, and the emulator's boot status.
+- **API connection refused or timed out:** verify Swagger on the computer, the selected base URL, backend availability, USB forwarding or firewall rules, and the trailing `/api/`.
+- **Cleartext HTTP blocked:** check that the exact host is listed in `network_security_config.xml`; use the emulator or USB examples above.
+- **Blank map or missing location:** verify the public Mapbox token, network access, device location settings, runtime permission, and the emulator's simulated location.
+- **401/403 after changing backends:** log in again against the selected API so the app obtains a matching token.
+
+Inspect runtime errors in Android Studio's **Logcat**. The network client logs HTTP bodies, so review logs before sharing them to avoid exposing account information or tokens.
