@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using readytohelpapi.User.DTOs;
 using readytohelpapi.User.Models;
 using readytohelpapi.User.Services;
+using readytohelpapi.Common.Data;
 
 /// <summary>
 /// Provides API endpoints for managing users.
@@ -16,14 +17,16 @@ using readytohelpapi.User.Services;
 public class UserApiController : ControllerBase
 {
     private readonly IUserService userService;
+    private readonly ISubmissionTransactionFactory transactions;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="UserApiController"/> class.
     /// </summary>
     /// <param name="userService"></param>
-    public UserApiController(IUserService userService)
+    public UserApiController(IUserService userService, ISubmissionTransactionFactory transactions)
     {
         this.userService = userService;
+        this.transactions = transactions;
     }
 
     /// <summary>
@@ -90,6 +93,9 @@ public class UserApiController : ControllerBase
             if (user is null)
                 return BadRequest("User body is required.");
 
+            if (!User.IsInRole("ADMIN") && user.Profile == Profile.ADMIN)
+                return Forbid();
+
             var created = userService.Create(user);
 
             var dto = new UserResponseDto
@@ -126,9 +132,17 @@ public class UserApiController : ControllerBase
         {
             if (user is null)
                 return BadRequest("User body is required.");
+            if (id <= 0)
+                return BadRequest("Invalid user id.");
+
+            using var transaction = transactions.Begin(-id);
+            if (!User.IsInRole("ADMIN")
+                && (user.Profile == Profile.ADMIN || userService.GetUserById(id).Profile == Profile.ADMIN))
+                return Forbid();
             user.Id = id;
 
             var updated = userService.Update(user);
+            transaction.Commit();
 
             var dto = new UserResponseDto
             {
@@ -169,9 +183,17 @@ public class UserApiController : ControllerBase
     {
         try
         {
+            if (id <= 0)
+                return BadRequest("Invalid user id.");
+
+            using var transaction = transactions.Begin(-id);
+            if (!User.IsInRole("ADMIN") && userService.GetUserById(id).Profile == Profile.ADMIN)
+                return Forbid();
+
             var deleted = userService.Delete(id);
             if (deleted is null)
                 return NotFound();
+            transaction.Commit();
 
             var dto = new UserResponseDto
             {
@@ -202,7 +224,7 @@ public class UserApiController : ControllerBase
     /// </summary>
     /// <param name="id"></param>
     /// <returns>The user with the specified Id if found; otherwise a NotFound result.</returns>
-    [Authorize]
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpGet("{id:int}")]
     public IActionResult GetUserById([FromRoute] int id)
     {
@@ -243,7 +265,7 @@ public class UserApiController : ControllerBase
     /// <param name="sortOrder"></param>
     /// <param name="filter"></param>
     /// <returns>A list of users.</returns>
-    [Authorize]
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpGet]
     public ActionResult<List<UserResponseDto>> GetAll(
         [FromQuery] int pageNumber = 1,
@@ -283,7 +305,7 @@ public class UserApiController : ControllerBase
     /// </summary>
     /// <param name="email"></param>
     /// <returns>The user with the specified email if found; otherwise a NotFound result.</returns>
-    [Authorize]
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpGet("email/{email}")]
     public IActionResult GetUserByEmail([FromRoute] string email)
     {

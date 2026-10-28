@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using readytohelpapi.Common.Data;
+using readytohelpapi.Common.Authentication;
 using readytohelpapi.Report.DTOs;
 using readytohelpapi.Report.Models;
 using readytohelpapi.Report.Services;
@@ -49,12 +50,15 @@ public class ReportApiController : ControllerBase
 
         try
         {
+            if (!User.TryGetUserId(out var authorId))
+                return Unauthorized();
+
             var report = new Report
             {
                 Title = dto.Title,
                 Description = dto.Description,
                 Type = dto.Type,
-                UserId = dto.UserId,
+                UserId = authorId,
                 Location = new GeoPoint.Models.GeoPoint
                 {
                     Latitude = dto.Latitude,

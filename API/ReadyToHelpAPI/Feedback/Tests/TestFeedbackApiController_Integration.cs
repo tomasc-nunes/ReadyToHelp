@@ -194,7 +194,12 @@ public class TestFeedbackApiController_Integration
             UserId = userId,
             IsConfirmed = isConfirmed,
         };
-        return client.PostAsJsonAsync("/api/feedback", payload);
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/feedback")
+        {
+            Content = JsonContent.Create(payload),
+        };
+        request.Headers.Add("X-Test-UserId", userId.ToString());
+        return client.SendAsync(request);
     }
 
     /// <summary>
@@ -230,7 +235,7 @@ public class TestFeedbackApiController_Integration
         Assert.Equal(HttpStatusCode.BadRequest, second.StatusCode);
 
         var body = await second.Content.ReadAsStringAsync();
-        Assert.Contains("within the last hour", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("within the last 10 minutes", body, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -259,13 +264,13 @@ public class TestFeedbackApiController_Integration
     /// Tests the create feedback method when the occurrence is in waiting status.
     /// </summary>
     [Fact]
-    public async Task Create_ReturnsInternalServerError_WhenOccurrenceWaiting()
+    public async Task Create_ReturnsBadRequest_WhenOccurrenceWaiting()
     {
         var (occId, details) = await CreateOccurrenceAsync(activate: false);
         Assert.Equal(OccurrenceStatus.WAITING, details.Status);
 
         var resp = await PostFeedbackAsync(occId, userId: 1, isConfirmed: true);
-        Assert.Equal(HttpStatusCode.InternalServerError, resp.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
     /// <summary>

@@ -107,6 +107,7 @@ public class TestReportApiController_Integration : IClassFixture<TestWebApplicat
             Longitude = -8.194949,
         };
 
+        client.DefaultRequestHeaders.Add("X-Test-UserId", userId.ToString());
         var resp = await client.PostAsJsonAsync("/api/reports", dto);
         resp.EnsureSuccessStatusCode();
 

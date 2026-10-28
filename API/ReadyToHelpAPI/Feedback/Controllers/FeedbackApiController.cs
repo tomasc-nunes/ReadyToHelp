@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using readytohelpapi.Feedback.Models;
 using readytohelpapi.Feedback.Services;
+using readytohelpapi.Common.Authentication;
 
 /// <summary>
 ///   Provides API endpoints for managing feedbacks.
@@ -39,6 +40,16 @@ public class FeedbackApiController : ControllerBase
         }
         try
         {
+            if (!User.TryGetUserId(out var authorId))
+                return Unauthorized();
+
+            // Only these fields are accepted; client IDs and timestamps are not persisted.
+            feedback = new Feedback
+            {
+                UserId = authorId,
+                OccurrenceId = feedback.OccurrenceId,
+                IsConfirmed = feedback.IsConfirmed,
+            };
             var created = service.Create(feedback);
             return StatusCode(StatusCodes.Status201Created, created);
         }

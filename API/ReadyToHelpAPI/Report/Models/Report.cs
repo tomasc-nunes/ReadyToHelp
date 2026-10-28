@@ -44,6 +44,11 @@ public class Report
     public int UserId { get; set; }
 
     /// <summary>
+    ///   Gets or sets the occurrence identifier associated with the report.
+    /// </summary>
+    public int? OccurrenceId { get; set; }
+
+    /// <summary>
     ///   Gets or sets the geographical location of the report.
     /// </summary>
     public required GeoPoint Location { get; set; }

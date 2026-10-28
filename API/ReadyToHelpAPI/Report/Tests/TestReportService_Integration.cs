@@ -59,7 +59,8 @@ public class TestReportService_Integration : IClassFixture<DbFixture>
             reportRepo,
             occurrenceService,
             responsibleService,
-            notifierClient
+            notifierClient,
+            new readytohelpapi.Common.Data.SubmissionTransactionFactory(context)
         );
     }
 

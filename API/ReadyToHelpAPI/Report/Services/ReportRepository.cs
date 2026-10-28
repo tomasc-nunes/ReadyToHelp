@@ -47,4 +47,19 @@ public class ReportRepository : IReportRepository
             return null;
         return reportContext.Reports.AsNoTracking().FirstOrDefault(r => r.Id == id);
     }
+
+    /// <inheritdoc />
+    public bool HasReport(int occurrenceId, int userId) => reportContext.Reports
+        .Any(r => r.OccurrenceId == occurrenceId && r.UserId == userId);
+
+    /// <inheritdoc />
+    public int CountReporters(int occurrenceId) => reportContext.Reports
+        .Where(r => r.OccurrenceId == occurrenceId).Select(r => r.UserId).Distinct().Count();
+
+    /// <inheritdoc />
+    public void LinkToOccurrence(Report report, int occurrenceId)
+    {
+        report.OccurrenceId = occurrenceId;
+        reportContext.SaveChanges();
+    }
 }

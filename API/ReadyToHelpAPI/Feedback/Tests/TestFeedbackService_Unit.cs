@@ -25,7 +25,7 @@ public class TestFeedbackService_Unit
     {
         mockRepo = new Mock<IFeedbackRepository>();
         var mockOccurrenceService = new Mock<IOccurrenceService>();
-        service = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object);
+        service = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object, readytohelpapi.Common.Tests.SecurityTestSupport.Transactions());
     }
 
     /// <summary>
@@ -208,7 +208,7 @@ public class TestFeedbackService_Unit
     /// Tests the Create method when the occurrence is in WAITING status.
     /// </summary>
     [Fact]
-    public void Create_OccurrenceWaiting_ThrowsInvalidOperationException()
+    public void Create_OccurrenceWaiting_ThrowsArgumentException()
     {
         var fb = new Feedback { UserId = 1, OccurrenceId = 2, IsConfirmed = true };
 
@@ -219,10 +219,10 @@ public class TestFeedbackService_Unit
         mockOccurrenceService.Setup(s => s.GetOccurrenceById(2))
             .Returns(new Occurrence { Status = OccurrenceStatus.WAITING });
 
-        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object);
+        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object, readytohelpapi.Common.Tests.SecurityTestSupport.Transactions());
 
-        var ex = Assert.Throws<InvalidOperationException>(() => svc.Create(fb));
-        Assert.Contains("WAITING", ex.Message, StringComparison.OrdinalIgnoreCase);
+        var ex = Assert.Throws<ArgumentException>(() => svc.Create(fb));
+        Assert.Contains("ACTIVE", ex.Message, StringComparison.OrdinalIgnoreCase);
         mockRepo.Verify(r => r.Create(It.IsAny<Feedback>()), Times.Never);
     }
 
@@ -252,7 +252,7 @@ public class TestFeedbackService_Unit
             .Returns(new Occurrence { Id = 2, Status = OccurrenceStatus.ACTIVE })
             .Returns(new Occurrence { Id = 2, Status = OccurrenceStatus.ACTIVE, EndDateTime = default });
 
-        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object);
+        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object, readytohelpapi.Common.Tests.SecurityTestSupport.Transactions());
 
         var result = svc.Create(fb);
 
@@ -273,8 +273,8 @@ public class TestFeedbackService_Unit
         mockRepo.Setup(r => r.Create(It.IsAny<Feedback>()))
                 .Returns<Feedback>(f => { f.Id = 12; return f; });
         mockRepo.Setup(r => r.GetFeedbacksByOccurrenceId(2))
-                .Returns(Enumerable.Range(0, 5).Select(_ =>
-                    new Feedback { UserId = 1, OccurrenceId = 2, IsConfirmed = false, FeedbackDateTime = DateTime.UtcNow }).ToList());
+                .Returns(Enumerable.Range(1, 5).Select(userId =>
+                    new Feedback { UserId = userId, OccurrenceId = 2, IsConfirmed = false, FeedbackDateTime = DateTime.UtcNow }).ToList());
 
         var occForCheck = new Occurrence { Id = 2, Status = OccurrenceStatus.ACTIVE };
         var occForUpdate = new Occurrence { Id = 2, Status = OccurrenceStatus.ACTIVE, EndDateTime = default };
@@ -285,7 +285,7 @@ public class TestFeedbackService_Unit
             .Returns(occForCheck)
             .Returns(occForUpdate);
 
-        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object);
+        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object, readytohelpapi.Common.Tests.SecurityTestSupport.Transactions());
 
         var result = svc.Create(fb);
 
@@ -307,8 +307,8 @@ public class TestFeedbackService_Unit
         mockRepo.Setup(r => r.Create(It.IsAny<Feedback>()))
                 .Returns<Feedback>(f => { f.Id = 13; return f; });
         mockRepo.Setup(r => r.GetFeedbacksByOccurrenceId(2))
-                .Returns(Enumerable.Range(0, 5).Select(_ =>
-                    new Feedback { UserId = 1, OccurrenceId = 2, IsConfirmed = false, FeedbackDateTime = DateTime.UtcNow }).ToList());
+                .Returns(Enumerable.Range(1, 5).Select(userId =>
+                    new Feedback { UserId = userId, OccurrenceId = 2, IsConfirmed = false, FeedbackDateTime = DateTime.UtcNow }).ToList());
 
         var mockOccurrenceService = new Mock<IOccurrenceService>();
         mockOccurrenceService
@@ -316,7 +316,7 @@ public class TestFeedbackService_Unit
             .Returns(new Occurrence { Id = 2, Status = OccurrenceStatus.ACTIVE })
             .Returns(new Occurrence { Id = 2, Status = OccurrenceStatus.ACTIVE, EndDateTime = DateTime.UtcNow });
 
-        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object);
+        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object, readytohelpapi.Common.Tests.SecurityTestSupport.Transactions());
 
         var result = svc.Create(fb);
 
@@ -337,8 +337,8 @@ public class TestFeedbackService_Unit
         mockRepo.Setup(r => r.Create(It.IsAny<Feedback>()))
                 .Returns<Feedback>(f => { f.Id = 14; return f; });
         mockRepo.Setup(r => r.GetFeedbacksByOccurrenceId(2))
-                .Returns(Enumerable.Range(0, 5).Select(_ =>
-                    new Feedback { UserId = 1, OccurrenceId = 2, IsConfirmed = false, FeedbackDateTime = DateTime.UtcNow }).ToList());
+                .Returns(Enumerable.Range(1, 5).Select(userId =>
+                    new Feedback { UserId = userId, OccurrenceId = 2, IsConfirmed = false, FeedbackDateTime = DateTime.UtcNow }).ToList());
 
         var mockOccurrenceService = new Mock<IOccurrenceService>();
         mockOccurrenceService
@@ -350,7 +350,7 @@ public class TestFeedbackService_Unit
             .Setup(s => s.Update(It.IsAny<Occurrence>()))
             .Throws(new InvalidOperationException("db fail"));
 
-        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object);
+        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object, readytohelpapi.Common.Tests.SecurityTestSupport.Transactions());
 
         var ex = Assert.Throws<InvalidOperationException>(() => svc.Create(fb));
         Assert.Contains("Failed to process occurrence status update", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -358,7 +358,7 @@ public class TestFeedbackService_Unit
     }
 
     /// <summary>
-    /// Tests the Create method when the same user already submitted feedback within the last hour.
+    /// Tests the Create method when the same user already submitted feedback within the last 10 minutes.
     /// </summary>
     [Fact]
     public void Create_DuplicateWithinHour_ThrowsArgumentException()
@@ -370,7 +370,7 @@ public class TestFeedbackService_Unit
         mockRepo.Setup(r => r.HasRecentFeedback(1, 2, It.IsAny<DateTime>())).Returns(true);
 
         var ex = Assert.Throws<ArgumentException>(() => service.Create(fb));
-        Assert.Contains("within the last hour", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("within the last 10 minutes", ex.Message, StringComparison.OrdinalIgnoreCase);
         mockRepo.Verify(r => r.Create(It.IsAny<Feedback>()), Times.Never);
     }
 
@@ -391,7 +391,7 @@ public class TestFeedbackService_Unit
         mockOccurrenceService.Setup(s => s.GetOccurrenceById(2))
             .Returns(new Occurrence { Id = 2, Status = OccurrenceStatus.ACTIVE });
 
-        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object);
+        var svc = new FeedbackServiceImpl(mockRepo.Object, mockOccurrenceService.Object, readytohelpapi.Common.Tests.SecurityTestSupport.Transactions());
 
         var ex = Assert.Throws<InvalidOperationException>(() => svc.Create(fb));
         Assert.Contains("Failed to create feedback", ex.Message, StringComparison.OrdinalIgnoreCase);

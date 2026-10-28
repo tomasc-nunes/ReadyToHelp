@@ -19,7 +19,8 @@ public class TestUserApiController_Unit
 
     public TestUserApiController_Unit()
     {
-        controller = new UserApiController(mockService.Object);
+        controller = new UserApiController(mockService.Object, readytohelpapi.Common.Tests.SecurityTestSupport.Transactions());
+        readytohelpapi.Common.Tests.SecurityTestSupport.SignIn(controller);
     }
 
     private static User NewUser(

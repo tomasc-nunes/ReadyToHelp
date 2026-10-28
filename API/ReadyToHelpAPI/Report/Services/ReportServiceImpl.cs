@@ -7,6 +7,7 @@ using readytohelpapi.Occurrence.Models;
 using readytohelpapi.Occurrence.Services;
 using readytohelpapi.Report.Models;
 using readytohelpapi.ResponsibleEntity.Services;
+using readytohelpapi.Common.Data;
 
 /// <summary>
 ///  Implementation of the report service.
@@ -17,6 +18,7 @@ public class ReportServiceImpl : IReportService
     private readonly IOccurrenceService occurrenceService;
     private readonly IResponsibleEntityService responsibleEntityService;
     private readonly INotifierClient notifierClient;
+    private readonly ISubmissionTransactionFactory transactions;
     private const double DefaultProximityRadiusMeters = 50d;
     private const int triggerActivate = 3;
 
@@ -31,13 +33,15 @@ public class ReportServiceImpl : IReportService
         IReportRepository reportRepository,
         IOccurrenceService occurrenceService,
         IResponsibleEntityService responsibleEntityService,
-        INotifierClient notifierClient
+        INotifierClient notifierClient,
+        ISubmissionTransactionFactory transactions
     )
     {
         this.reportRepository = reportRepository;
         this.occurrenceService = occurrenceService;
         this.responsibleEntityService = responsibleEntityService;
         this.notifierClient = notifierClient;
+        this.transactions = transactions;
     }
 
     /// <inheritdoc />
@@ -54,6 +58,7 @@ public class ReportServiceImpl : IReportService
         if (report.Location is null)
             throw new ArgumentException("Location is required.", nameof(report));
 
+        using var transaction = transactions.Begin((int)report.Type);
         var responsibleEntity = responsibleEntityService.FindResponsibleEntity(
             report.Type,
             report.Location.Latitude,
@@ -61,19 +66,33 @@ public class ReportServiceImpl : IReportService
         );
 
         var duplicatedOccurrence = FindNearbyOccurrenceOfSameType(report);
+        if (duplicatedOccurrence != null
+            && (reportRepository.HasReport(duplicatedOccurrence.Id, report.UserId)
+                || (duplicatedOccurrence.ReportId.HasValue
+                    && reportRepository.GetById(duplicatedOccurrence.ReportId.Value)?.UserId == report.UserId)))
+            throw new ArgumentException("You have already reported this occurrence.");
+
         var createdReport = reportRepository.Create(report);
 
         if (duplicatedOccurrence != null)
         {
-            return HandleDuplicateOccurrence(
+            reportRepository.LinkToOccurrence(createdReport, duplicatedOccurrence.Id);
+            var shouldNotify = duplicatedOccurrence.Status == OccurrenceStatus.WAITING;
+            var result = HandleDuplicateOccurrence(
                 duplicatedOccurrence,
                 createdReport,
                 report,
                 responsibleEntity
             );
+            transaction.Commit();
+            if (shouldNotify && result.Item2.Status == OccurrenceStatus.ACTIVE)
+                NotifyResponsibleEntity(result.Item2, report, responsibleEntity, isDuplicate: true);
+            return result;
         }
 
         var createdOccurrence = CreateNewOccurrence(createdReport, report, responsibleEntity);
+        reportRepository.LinkToOccurrence(createdReport, createdOccurrence.Id);
+        transaction.Commit();
         return (createdReport, createdOccurrence);
     }
 
@@ -92,19 +111,13 @@ public class ReportServiceImpl : IReportService
         ResponsibleEntity.Models.ResponsibleEntity? responsibleEntity
     )
     {
-        duplicatedOccurrence.ReportCount += 1;
+        duplicatedOccurrence.ReportCount = reportRepository.CountReporters(duplicatedOccurrence.Id);
         if (
             duplicatedOccurrence.ReportCount >= triggerActivate
             && duplicatedOccurrence.Status == OccurrenceStatus.WAITING
         )
         {
             duplicatedOccurrence.Status = OccurrenceStatus.ACTIVE;
-            NotifyResponsibleEntity(
-                duplicatedOccurrence,
-                report,
-                responsibleEntity,
-                isDuplicate: true
-            );
         }
 
         occurrenceService.Update(duplicatedOccurrence);
@@ -189,6 +202,8 @@ public class ReportServiceImpl : IReportService
 
         foreach (var occ in sameTypeOccurrences)
         {
+            if (occ.Status == OccurrenceStatus.CLOSED || occ.EndDateTime != default)
+                continue;
             var occRadius =
                 occ.ProximityRadius > 0 ? occ.ProximityRadius : DefaultProximityRadiusMeters;
 

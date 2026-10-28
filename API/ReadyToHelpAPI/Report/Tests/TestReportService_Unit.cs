@@ -45,7 +45,8 @@ public class TestReportService_Unit
             mockRepo.Object,
             mockOccSvc.Object,
             mockRespEntSvc.Object,
-            mockNotifier.Object
+            mockNotifier.Object,
+            readytohelpapi.Common.Tests.SecurityTestSupport.Transactions()
         );
     }
 
@@ -245,7 +246,7 @@ public class TestReportService_Unit
     {
         var input = ReportFixture.CreateOrUpdate(
             title: "Buraco",
-            userId: 1,
+            userId: 2,
             location: Pt(41.3678, -8.2012)
         );
         var createdReport = ReportFixture.CreateOrUpdate(
@@ -292,6 +293,7 @@ public class TestReportService_Unit
         mockRepo.Setup(r => r.Create(It.IsAny<Report>())).Returns(createdReport);
         mockOccSvc.Setup(s => s.Update(It.IsAny<Occurrence>())).Returns<Occurrence>(o => o);
 
+        mockRepo.Setup(r => r.CountReporters(10)).Returns(2);
         var (rep, occ) = service.Create(input);
 
         Assert.Equal(123, rep.Id);
@@ -331,7 +333,7 @@ public class TestReportService_Unit
     [Fact]
     public void Create_Duplicate_Reaches3_ActivatesOccurrence()
     {
-        var input = ReportFixture.CreateOrUpdate(title: "Buraco", userId: 1, location: Pt());
+        var input = ReportFixture.CreateOrUpdate(title: "Buraco", userId: 2, location: Pt());
         var createdReport = ReportFixture.CreateOrUpdate(
             id: 555,
             title: input.Title,
@@ -370,6 +372,7 @@ public class TestReportService_Unit
         mockRepo.Setup(r => r.Create(It.IsAny<Report>())).Returns(createdReport);
         mockOccSvc.Setup(s => s.Update(It.IsAny<Occurrence>())).Returns<Occurrence>(o => o);
 
+        mockRepo.Setup(r => r.CountReporters(22)).Returns(3);
         var (_, occ) = service.Create(input);
 
         Assert.Equal(3, occ.ReportCount);
@@ -407,7 +410,7 @@ public class TestReportService_Unit
     [Fact]
     public void Create_Duplicate_AlreadyActive_KeepsActive()
     {
-        var input = ReportFixture.CreateOrUpdate(title: "Buraco", userId: 1, location: Pt());
+        var input = ReportFixture.CreateOrUpdate(title: "Buraco", userId: 2, location: Pt());
         var createdReport = ReportFixture.CreateOrUpdate(
             id: 777,
             title: input.Title,
@@ -443,6 +446,7 @@ public class TestReportService_Unit
         mockRepo.Setup(r => r.Create(It.IsAny<Report>())).Returns(createdReport);
         mockOccSvc.Setup(s => s.Update(It.IsAny<Occurrence>())).Returns<Occurrence>(o => o);
 
+        mockRepo.Setup(r => r.CountReporters(33)).Returns(6);
         var (_, occ) = service.Create(input);
 
         Assert.Equal(6, occ.ReportCount);

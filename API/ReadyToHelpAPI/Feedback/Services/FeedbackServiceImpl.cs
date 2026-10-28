@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using readytohelpapi.Feedback.Models;
 using readytohelpapi.Occurrence.Services;
 using readytohelpapi.Occurrence.Models;
+using readytohelpapi.Common.Data;
 
 /// <summary>
 ///   Implementation of feedback service operations.
@@ -13,16 +14,19 @@ public class FeedbackServiceImpl : IFeedbackService
 {
     private readonly IFeedbackRepository repo;
     private readonly IOccurrenceService occurrenceService;
+    private readonly ISubmissionTransactionFactory transactions;
 
     /// <summary>
     ///   Initializes a new instance of the <see cref="FeedbackServiceImpl"/> class.
     /// </summary>
     /// <param name="repo">The feedback repository.</param>
     /// <param name="occurrenceService">The occurrence service.</param>
-    public FeedbackServiceImpl(IFeedbackRepository repo, IOccurrenceService? occurrenceService)
+    public FeedbackServiceImpl(IFeedbackRepository repo, IOccurrenceService? occurrenceService,
+        ISubmissionTransactionFactory transactions)
     {
         this.repo = repo ?? throw new ArgumentNullException(nameof(repo));
         this.occurrenceService = occurrenceService ?? throw new ArgumentNullException(nameof(occurrenceService));
+        this.transactions = transactions;
     }
 
     /// <inheritdoc />
@@ -43,18 +47,22 @@ public class FeedbackServiceImpl : IFeedbackService
                 nameof(feedback)
             );
 
+        var occurrence = occurrenceService.GetOccurrenceById(feedback.OccurrenceId);
+        using var transaction = transactions.Begin((int)(occurrence?.Type ?? default));
+
         var now = DateTime.UtcNow;
         var cutoff = now.AddHours(-1);
-        if (repo.HasRecentFeedback(feedback.UserId, feedback.OccurrenceId, cutoff))
+        if (repo.HasRecentFeedback(feedback.UserId, feedback.OccurrenceId, now.AddMinutes(-10)))
             throw new ArgumentException(
-                "User already submitted feedback for this occurrence within the last hour.",
+                "User already submitted feedback for this occurrence within the last 10 minutes.",
                 nameof(feedback)
             );
 
         var occCheck = occurrenceService.GetOccurrenceById(feedback.OccurrenceId);
-        if (occCheck != null && occCheck.Status == OccurrenceStatus.WAITING)
-            throw new InvalidOperationException("Cannot submit feedback for an occurrence with WAITING status.");
+        if (occCheck != null && occCheck.Status != OccurrenceStatus.ACTIVE)
+            throw new ArgumentException("Feedback requires an ACTIVE occurrence.");
 
+        feedback.Id = 0;
         feedback.FeedbackDateTime = now;
 
         var created = repo.Create(feedback) ?? throw new InvalidOperationException("Failed to create feedback.");
@@ -63,11 +71,16 @@ public class FeedbackServiceImpl : IFeedbackService
             if (!created.IsConfirmed)
             {
                 var allForOccurrence = repo.GetFeedbacksByOccurrenceId(created.OccurrenceId) ?? new List<Feedback>();
-                var negativeCount = allForOccurrence.Count(f => f != null && !f.IsConfirmed);
+                var negativeCount = allForOccurrence
+                    .Where(f => f.FeedbackDateTime >= cutoff)
+                    .GroupBy(f => f.UserId)
+                    .Select(group => group.OrderByDescending(f => f.FeedbackDateTime)
+                        .ThenByDescending(f => f.Id).First())
+                    .Count(f => !f.IsConfirmed);
 
                 if (negativeCount >= 5)
                 {
-                    var occ = occurrenceService.GetOccurrenceById(created.OccurrenceId);
+                    var occ = occCheck;
                     if (occ != null && occ.EndDateTime == default)
                     {
                         occ.Status = OccurrenceStatus.CLOSED;
@@ -82,6 +95,7 @@ public class FeedbackServiceImpl : IFeedbackService
             throw new InvalidOperationException("Failed to process occurrence status update based on feedback.", ex);
         }
 
+        transaction.Commit();
         return created;
     }
 

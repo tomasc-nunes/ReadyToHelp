@@ -24,6 +24,7 @@ public class TestFeedbackApiController_Unit
     {
         mockService = new Mock<IFeedbackService>();
         controller = new FeedbackApiController(mockService.Object);
+        readytohelpapi.Common.Tests.SecurityTestSupport.SignIn(controller);
     }
 
     /// <summary>

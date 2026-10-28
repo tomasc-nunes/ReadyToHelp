@@ -34,6 +34,7 @@ public class TestReportApiController_Unit
             mockReportService.Object,
             mockContext.Object
         );
+        readytohelpapi.Common.Tests.SecurityTestSupport.SignIn(controller);
     }
 
     /// <summary>
@@ -197,6 +198,7 @@ public class TestReportApiController_Unit
 
         var localService = new Mock<IReportService>();
         var localController = new ReportApiController(localService.Object, realCtx);
+        readytohelpapi.Common.Tests.SecurityTestSupport.SignIn(localController);
 
         var dto = new CreateReportDto
         {
@@ -270,6 +272,7 @@ public class TestReportApiController_Unit
             .Returns((createdReport, createdOccurrence));
 
         var localController = new ReportApiController(localService.Object, realCtx);
+        readytohelpapi.Common.Tests.SecurityTestSupport.SignIn(localController);
 
         var result = localController.Create(dto);
 
