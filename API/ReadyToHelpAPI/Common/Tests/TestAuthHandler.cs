@@ -25,6 +25,8 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         var claims = new[]
         {
             new Claim(ClaimTypes.Name, "testuser"),
+            // Only this test handler reads the header; production uses the signed JWT subject.
+            new Claim(ClaimTypes.NameIdentifier, Request.Headers["X-Test-UserId"].FirstOrDefault() ?? "1"),
             new Claim(ClaimTypes.Role, "ADMIN"),
             new Claim(ClaimTypes.Role, "MANAGER"),
         };

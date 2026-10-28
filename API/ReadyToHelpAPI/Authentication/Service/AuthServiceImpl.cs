@@ -4,8 +4,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Authentication;
 using System.Security.Claims;
 using System.Text;
-using System.Text.Json;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.IdentityModel.Tokens;
 using readytohelpapi.Authentication.Miscellaneous;
 using readytohelpapi.User.Models;
@@ -19,7 +17,8 @@ public class AuthServiceImpl : IAuthService
     private readonly IUserService userService;
     private readonly IConfiguration configuration;
     private readonly JwtSecurityTokenHandler tokenHandler = new();
-    private readonly IDistributedCache cache;
+    private readonly ITokenRevocationStore revocations;
+    private readonly IAuthSessionStore sessions;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AuthServiceImpl"/> class.
@@ -31,13 +30,15 @@ public class AuthServiceImpl : IAuthService
     public AuthServiceImpl(
         IUserService userService,
         IConfiguration configuration,
-        IDistributedCache cache
+        ITokenRevocationStore revocations,
+        IAuthSessionStore sessions
     )
     {
         this.userService = userService ?? throw new ArgumentNullException(nameof(userService));
         this.configuration =
             configuration ?? throw new ArgumentNullException(nameof(configuration));
-        this.cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        this.revocations = revocations ?? throw new ArgumentNullException(nameof(revocations));
+        this.sessions = sessions;
 
         _ =
             configuration["Jwt:Secret"]
@@ -73,7 +74,7 @@ public class AuthServiceImpl : IAuthService
         if (user is null || !BCrypt.Net.BCrypt.Verify(authentication.Password, user.Password))
             throw new AuthenticationException("Invalid login credentials.");
 
-        return TokenProvider(user.Id, user.Email, user.Profile);
+        return TokenProvider(user);
     }
 
     /// <summary>
@@ -104,7 +105,7 @@ public class AuthServiceImpl : IAuthService
         if (user.Profile != Profile.ADMIN && user.Profile != Profile.MANAGER)
             throw new UnauthorizedAccessException("User profile not allowed for web login.");
 
-        return TokenProvider(user.Id, user.Email, user.Profile);
+        return TokenProvider(user);
     }
 
     /// <summary>
@@ -144,7 +145,10 @@ public class AuthServiceImpl : IAuthService
             )
                 return string.Empty;
 
-            return TokenProvider(id, email, profile);
+            var sessionId = jwtToken.Claims.FirstOrDefault(c => c.Type == "sid")?.Value;
+            if (string.IsNullOrEmpty(sessionId)) return string.Empty;
+            var currentUser = userService.GetUserById(id);
+            return TokenProvider(currentUser, sessionId, jwtToken.Id);
         }
         catch
         {
@@ -171,17 +175,9 @@ public class AuthServiceImpl : IAuthService
         if (totalTime <= TimeSpan.Zero)
             return;
 
-        var key = $"revoked_tokens:{jti}";
-        var options = new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = totalTime,
-        };
-
-        cache.SetString(
-            key,
-            JsonSerializer.Serialize(new { revokedAt = DateTime.UtcNow }),
-            options
-        );
+        revocations.Revoke(jti, expiration);
+        var sessionId = jwt.Claims.FirstOrDefault(c => c.Type == "sid")?.Value;
+        if (sessionId != null) sessions.Revoke(sessionId);
     }
 
     /// <summary>
@@ -215,15 +211,8 @@ public class AuthServiceImpl : IAuthService
             securityToken as JwtSecurityToken ?? throw new SecurityTokenException("Invalid token");
 
         var jti = jwtToken.Id;
-        if (!string.IsNullOrWhiteSpace(jti))
-        {
-            var key = $"revoked_tokens:{jti}";
-            var revokedToken = cache.GetString(key);
-            if (revokedToken != null)
-            {
-                throw new SecurityTokenException("Token has been revoked.");
-            }
-        }
+        if (string.IsNullOrWhiteSpace(jti) || revocations.IsRevoked(jti))
+            throw new SecurityTokenException("Token is missing its identifier or has been revoked.");
 
         return principal;
     }
@@ -234,17 +223,21 @@ public class AuthServiceImpl : IAuthService
     /// <param name="id">The user ID.</param>
     /// <param name="email">The user email.</param>
     /// <param name="profile">The user profile.</param>
-    private string TokenProvider(int id, string email, Profile profile)
+    private string TokenProvider(User user, string? sessionId = null, string? previousTokenId = null)
     {
+        var tokenId = Guid.NewGuid().ToString("N");
+        var session = sessions.Issue(user, tokenId, sessionId, previousTokenId);
+        if (session == null) return string.Empty;
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Secret"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new List<Claim>
         {
-            new(ClaimTypes.Role, profile.ToString()),
-            new(JwtRegisteredClaimNames.Email, email),
-            new(JwtRegisteredClaimNames.Sub, id.ToString()),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            new(ClaimTypes.Role, user.Profile.ToString()),
+            new(JwtRegisteredClaimNames.Email, user.Email),
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(JwtRegisteredClaimNames.Jti, tokenId),
+            new("sid", session.Id),
         };
 
         var expiresDays = int.TryParse(configuration["Jwt:AccessTokenExpirationDays"], out var d)
@@ -254,7 +247,7 @@ public class AuthServiceImpl : IAuthService
         var descriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddDays(expiresDays),
+            Expires = new[] { DateTime.UtcNow.AddDays(Math.Clamp(expiresDays, 1, 1)), session.ExpiresAt }.Min(),
             SigningCredentials = creds,
             Issuer = configuration["Jwt:Issuer"],
             Audience = configuration["Jwt:Audience"],

@@ -2,8 +2,9 @@ namespace readytohelpapi.Authentication.Miscellaneous;
 
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.Caching.Distributed;
+using readytohelpapi.Authentication.Service;
 using Microsoft.Extensions.Logging;
+using readytohelpapi.Common.Authentication;
 
 /// <summary>
 ///   Class responsible for handling JWT revocation events.
@@ -25,28 +26,27 @@ public static class JwtRevocationEvents
             {
                 try
                 {
-                    var reqPath = context.HttpContext.Request.Path.Value ?? string.Empty;
-                    if (reqPath.StartsWith("/api/auth/logout", StringComparison.OrdinalIgnoreCase))
-                        return;
-
-                    var cache =
-                        context.HttpContext.RequestServices.GetService(typeof(IDistributedCache))
-                        as IDistributedCache;
-                    if (cache == null)
-                        return;
+                    var store = context.HttpContext.RequestServices
+                        .GetRequiredService<ITokenRevocationStore>();
 
                     var jti =
                         context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value
                         ?? (context.SecurityToken as JwtSecurityToken)?.Id;
                     if (string.IsNullOrWhiteSpace(jti))
+                    {
+                        context.Fail("Token identifier is required.");
                         return;
+                    }
 
-                    var key = $"revoked_tokens:{jti}";
-                    var revoked = await cache.GetStringAsync(key);
-                    if (!string.IsNullOrWhiteSpace(revoked))
+                    if (await store.IsRevokedAsync(jti, context.HttpContext.RequestAborted))
                     {
                         context.Fail("Token has been revoked.");
                     }
+                    var sessionId = context.Principal?.FindFirst("sid")?.Value;
+                    if (sessionId == null || !context.Principal!.TryGetUserId(out var userId)
+                        || !context.HttpContext.RequestServices.GetRequiredService<IAuthSessionStore>()
+                            .Validate(sessionId, jti, userId))
+                        context.Fail("Session is no longer valid.");
                 }
                 catch (Exception ex)
                 {
@@ -55,7 +55,8 @@ public static class JwtRevocationEvents
                         as ILoggerFactory;
                     loggerFactory
                         ?.CreateLogger("JwtBearer")
-                        .LogWarning(ex, "Error checking token revocation; skipping check.");
+                        .LogWarning(ex, "Unable to verify token revocation; rejecting authentication.");
+                    context.Fail("Unable to verify token revocation.");
                 }
             },
         };

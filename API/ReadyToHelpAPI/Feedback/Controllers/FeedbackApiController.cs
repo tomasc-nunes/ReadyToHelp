@@ -43,7 +43,6 @@ public class FeedbackApiController : ControllerBase
             if (!User.TryGetUserId(out var authorId))
                 return Unauthorized();
 
-            // Only these fields are accepted; client IDs and timestamps are not persisted.
             feedback = new Feedback
             {
                 UserId = authorId,

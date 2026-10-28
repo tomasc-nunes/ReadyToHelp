@@ -6,6 +6,7 @@ using readytohelpapi.Occurrence.Models;
 using readytohelpapi.Report.Models;
 using readytohelpapi.ResponsibleEntity.Models;
 using readytohelpapi.User.Models;
+using readytohelpapi.Authentication.Models;
 
 /// <summary>
 ///  Defines the application database context.
@@ -39,9 +40,24 @@ public class AppDbContext : DbContext
     public DbSet<Report> Reports { get; set; }
     public DbSet<Feedback> Feedbacks { get; set; }
     public DbSet<ResponsibleEntity> ResponsibleEntities { get; set; }
+    public DbSet<RevokedToken> RevokedTokens { get; set; }
+    public DbSet<AuthSession> AuthSessions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<AuthSession>(entity =>
+        {
+            entity.ToTable("auth_sessions");
+            entity.HasKey(s => s.Id);
+            entity.HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<RevokedToken>(entity =>
+        {
+            entity.ToTable("revoked_tokens");
+            entity.HasKey(token => token.Id);
+            entity.Property(token => token.Id).HasMaxLength(128);
+            entity.HasIndex(token => token.ExpiresAt);
+        });
         modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("users");
@@ -101,6 +117,9 @@ public class AppDbContext : DbContext
             b.Property(r => r.Description).IsRequired().HasMaxLength(1000);
             b.Property(r => r.ReportDateTime).IsRequired();
             b.Property(r => r.Type).HasConversion<string>().HasMaxLength(50);
+            b.HasOne<Occurrence>().WithMany().HasForeignKey(r => r.OccurrenceId)
+                .OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(r => new { r.OccurrenceId, r.UserId }).IsUnique();
 
             b.OwnsOne(
                 r => r.Location,

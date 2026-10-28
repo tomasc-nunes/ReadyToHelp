@@ -21,6 +21,7 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting("Jwt:Secret", "test-host-only-signing-key-01234567890123456789");
 
         builder.ConfigureTestServices(services =>
         {

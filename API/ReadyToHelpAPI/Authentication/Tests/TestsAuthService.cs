@@ -3,11 +3,12 @@ namespace readytohelpapi.Authentication.Controllers;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.Extensions.Caching.Distributed;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Moq;
 using readytohelpapi.Authentication.Service;
+using readytohelpapi.Authentication.Models;
 using readytohelpapi.User.Models;
 using readytohelpapi.User.Services;
 using Xunit;
@@ -23,7 +24,7 @@ public class TestAuthService
     private readonly Mock<IUserService> mockUserService;
     private readonly IConfiguration configuration;
     private readonly AuthServiceImpl authService;
-    private readonly Mock<IDistributedCache> mockCache;
+    private readonly Mock<ITokenRevocationStore> mockRevocations;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TestAuthService"/> class.
@@ -32,7 +33,7 @@ public class TestAuthService
     public TestAuthService()
     {
         mockUserService = new Mock<IUserService>();
-        mockCache = new Mock<IDistributedCache>();
+        mockRevocations = new Mock<ITokenRevocationStore>();
 
         var configData = new Dictionary<string, string?>
         {
@@ -43,7 +44,11 @@ public class TestAuthService
         };
         configuration = new ConfigurationBuilder().AddInMemoryCollection(configData).Build();
 
-        authService = new AuthServiceImpl(mockUserService.Object, configuration, mockCache.Object);
+        var sessions = new Mock<IAuthSessionStore>();
+        sessions.Setup(s => s.Issue(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()))
+            .Returns<User, string, string?, string?>((u, token, sid, previous) => new AuthSession { Id = sid ?? "test-session", UserId = u.Id, TokenId = token, ExpiresAt = DateTime.UtcNow.AddDays(7) });
+        mockUserService.Setup(u => u.GetUserById(1)).Returns(new User { Id = 1, Name = "Test", Email = "u@mail.com", Password = "hash", Profile = Profile.ADMIN });
+        authService = new AuthServiceImpl(mockUserService.Object, configuration, mockRevocations.Object, sessions.Object);
     }
 
     /// <summary>
@@ -58,6 +63,7 @@ public class TestAuthService
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+        claims["sid"] = "test-session";
         var claimList = claims.Select(kv => new Claim(kv.Key, kv.Value)).ToList();
 
         var token = new JwtSecurityToken(
@@ -173,6 +179,7 @@ public class TestAuthService
                 [JwtRegisteredClaimNames.Sub] = "1",
                 [JwtRegisteredClaimNames.Email] = "u@mail.com",
                 [ClaimTypes.Role] = "ADMIN",
+                [JwtRegisteredClaimNames.Jti] = Guid.NewGuid().ToString("N"),
             }
         );
 
@@ -342,7 +349,7 @@ public class TestAuthService
     /// Tests revoking a JWT token by storing its JTI in the cache.
     /// </summary>
     [Fact]
-    public void RevokeToken_ShouldStoreJtiInCache()
+    public void RevokeToken_ShouldPersistJti()
     {
         var user = new User
         {
@@ -358,26 +365,17 @@ public class TestAuthService
         var token = authService.UserLoginWeb(auth);
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
-        var key = $"revoked_tokens:{jwt.Id}";
 
         authService.RevokeToken(token);
 
-        mockCache.Verify(
-            c =>
-                c.Set(
-                    It.Is<string>(k => k == key),
-                    It.IsAny<byte[]>(),
-                    It.IsAny<DistributedCacheEntryOptions>()
-                ),
-            Times.Once
-        );
+        mockRevocations.Verify(c => c.Revoke(jwt.Id, jwt.ValidTo), Times.Once);
     }
 
     /// <summary>
     /// Tests refreshing a JWT token that has been revoked in the cache.
     /// </summary>
     [Fact]
-    public void RefreshToken_ShouldReturnEmpty_WhenTokenRevokedInCache()
+    public void RefreshToken_ShouldReturnEmpty_WhenTokenRevoked()
     {
         var user = new User
         {
@@ -393,11 +391,10 @@ public class TestAuthService
         var token = authService.UserLoginWeb(auth);
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
-        var key = $"revoked_tokens:{jwt.Id}";
 
-        mockCache
-            .Setup(c => c.Get(It.Is<string>(k => k == key)))
-            .Returns(Encoding.UTF8.GetBytes("{}"));
+        mockRevocations
+            .Setup(c => c.IsRevoked(jwt.Id))
+            .Returns(true);
 
         var refreshed = authService.RefreshToken(token);
 

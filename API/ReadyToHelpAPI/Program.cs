@@ -117,8 +117,11 @@ var jwtSecret =
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 var keyBytes = Encoding.UTF8.GetBytes(jwtSecret);
+if (keyBytes.Length < 32) throw new InvalidOperationException("Jwt:Secret must contain at least 32 bytes.");
 
-builder.Services.AddDistributedMemoryCache();
+builder.Services.AddScoped<IAuthSessionStore, AuthSessionStore>();
+builder.Services.AddScoped<ITokenRevocationStore, TokenRevocationStore>();
+builder.Services.AddScoped<ISubmissionTransactionFactory, SubmissionTransactionFactory>();
 
 builder
     .Services.AddAuthentication(options =>
